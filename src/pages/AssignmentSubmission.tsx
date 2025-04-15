@@ -1,16 +1,35 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Upload, File, CheckCircle, AlertTriangle } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from 'react-router-dom';
+import { toast } from "sonner";
 
 const AssignmentSubmission: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [studentName, setStudentName] = useState('');
   const [assignmentName, setAssignmentName] = useState('');
   const [submissionStatus, setSubmissionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('Please log in to submit an assignment');
+        navigate('/auth');
+      } else {
+        setStudentName(session.user.user_metadata?.full_name || '');
+      }
+    };
+
+    checkAuth();
+  }, [navigate]);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -19,7 +38,7 @@ const AssignmentSubmission: React.FC = () => {
     }
   };
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
     if (!studentName || !assignmentName || !selectedFile) {
@@ -27,14 +46,21 @@ const AssignmentSubmission: React.FC = () => {
       return;
     }
 
-    // In a real app, this would be an API call
-    console.log('Submitting Assignment:', {
-      studentName,
-      assignmentName,
-      file: selectedFile
-    });
+    try {
+      // In a real app, you would upload the file to Supabase storage and store metadata in a table
+      console.log('Submitting Assignment:', {
+        studentName,
+        assignmentName,
+        file: selectedFile
+      });
 
-    setSubmissionStatus('success');
+      setSubmissionStatus('success');
+      toast.success('Assignment submitted successfully!');
+    } catch (error) {
+      console.error('Submission error:', error);
+      setSubmissionStatus('error');
+      toast.error('Failed to submit assignment');
+    }
   };
 
   return (
