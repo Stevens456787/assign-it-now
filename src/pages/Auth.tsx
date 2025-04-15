@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
@@ -13,7 +14,12 @@ const AuthPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   const [fullName, setFullName] = useState('');
+  const [userType, setUserType] = useState('user');
   const navigate = useNavigate();
+
+  // Admin credentials
+  const adminEmail = "admin@example.com";
+  const adminPassword = "admin123";
 
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,7 +32,8 @@ const AuthPage: React.FC = () => {
           password,
           options: {
             data: {
-              full_name: fullName
+              full_name: fullName,
+              user_type: userType
             }
           }
         });
@@ -50,6 +57,11 @@ const AuthPage: React.FC = () => {
     } catch (error: any) {
       toast.error(error.message);
     }
+  };
+
+  const handleQuickSignIn = () => {
+    setEmail(adminEmail);
+    setPassword(adminPassword);
   };
 
   return (
@@ -102,12 +114,44 @@ const AuthPage: React.FC = () => {
               />
             </div>
             
+            {isSignUp && (
+              <div>
+                <Label htmlFor="userType">Account Type</Label>
+                <RadioGroup 
+                  id="userType" 
+                  value={userType} 
+                  onValueChange={setUserType}
+                  className="flex gap-4 mt-2"
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="user" id="user" />
+                    <Label htmlFor="user">User</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="admin" id="admin" />
+                    <Label htmlFor="admin">Admin</Label>
+                  </div>
+                </RadioGroup>
+              </div>
+            )}
+            
             <Button 
               type="submit" 
               className="w-full bg-[#7E69AB] hover:bg-[#5D4E8A] text-white"
             >
               {isSignUp ? 'Sign Up' : 'Login'}
             </Button>
+            
+            {!isSignUp && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleQuickSignIn}
+                className="w-full mt-2"
+              >
+                Use Admin Credentials
+              </Button>
+            )}
             
             <div className="text-center mt-4">
               <button 
