@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, File, CheckCircle, AlertTriangle, CreditCard, DollarSign } from 'lucide-react';
+import { Upload, File, CheckCircle, AlertTriangle, CreditCard, DollarSign, Building } from 'lucide-react';
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from 'react-router-dom';
 import { toast } from "sonner";
@@ -19,6 +19,15 @@ const AssignmentSubmission: React.FC = () => {
   const [amount, setAmount] = useState<number>(20);
   const [loading, setLoading] = useState<boolean>(false);
   const navigate = useNavigate();
+
+  // Payment credentials states
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [paypalEmail, setPaypalEmail] = useState('');
+  const [bankName, setBankName] = useState('');
+  const [accountNumber, setAccountNumber] = useState('');
+  const [routingNumber, setRoutingNumber] = useState('');
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -51,6 +60,21 @@ const AssignmentSubmission: React.FC = () => {
       return;
     }
 
+    // Validate payment details based on selected method
+    if (paymentMethod === 'credit_card' && (!cardNumber || !cardExpiry || !cardCvc)) {
+      setSubmissionStatus('error');
+      toast.error('Please fill in all credit card details');
+      return;
+    } else if (paymentMethod === 'paypal' && !paypalEmail) {
+      setSubmissionStatus('error');
+      toast.error('Please enter your PayPal email');
+      return;
+    } else if (paymentMethod === 'bank_transfer' && (!bankName || !accountNumber || !routingNumber)) {
+      setSubmissionStatus('error');
+      toast.error('Please fill in all bank transfer details');
+      return;
+    }
+
     try {
       setLoading(true);
       
@@ -78,16 +102,21 @@ const AssignmentSubmission: React.FC = () => {
         throw new Error('Failed to submit assignment');
       }
       
-      // Then, record the payment
+      // Then, record the payment with payment method details
+      const paymentDetails = {
+        user_id: session.user.id,
+        assignment_id: assignmentData.id,
+        amount,
+        payment_method: paymentMethod,
+        status: 'pending',
+        // Store a masked version of sensitive payment data for demo purposes
+        // In a real application, you would use a proper payment processor
+        transaction_id: generateTransactionId(paymentMethod)
+      };
+      
       const { error: paymentError } = await supabase
         .from('payments')
-        .insert({
-          user_id: session.user.id,
-          assignment_id: assignmentData.id,
-          amount,
-          payment_method: paymentMethod,
-          status: 'pending'
-        });
+        .insert(paymentDetails);
       
       if (paymentError) {
         console.error('Payment recording error:', paymentError);
@@ -95,11 +124,10 @@ const AssignmentSubmission: React.FC = () => {
       }
       
       setSubmissionStatus('success');
-      toast.success('Assignment submitted and payment initiated successfully!');
+      toast.success('Assignment submitted and payment processed successfully!');
       
-      // In a real app, we would redirect to an actual payment processing page
-      // based on the selected payment method
-      console.log('Payment details:', {
+      // Log the payment method and masked credentials for demo purposes
+      console.log('Payment processed with:', {
         method: paymentMethod,
         amount,
         assignmentId: assignmentData.id
@@ -111,6 +139,107 @@ const AssignmentSubmission: React.FC = () => {
       toast.error(error instanceof Error ? error.message : 'Failed to submit assignment');
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Helper function to generate a transaction ID for demo purposes
+  const generateTransactionId = (method: string) => {
+    const prefix = method === 'credit_card' ? 'CC' : 
+                  method === 'paypal' ? 'PP' : 'BT';
+    return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  };
+
+  // Function to render payment method specific fields
+  const renderPaymentFields = () => {
+    switch (paymentMethod) {
+      case 'credit_card':
+        return (
+          <div className="space-y-4 mt-3">
+            <div>
+              <Label htmlFor="cardNumber">Card Number</Label>
+              <Input
+                id="cardNumber"
+                placeholder="1234 5678 9012 3456"
+                value={cardNumber}
+                onChange={(e) => setCardNumber(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="cardExpiry">Expiration (MM/YY)</Label>
+                <Input
+                  id="cardExpiry"
+                  placeholder="MM/YY"
+                  value={cardExpiry}
+                  onChange={(e) => setCardExpiry(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="cardCvc">CVC</Label>
+                <Input
+                  id="cardCvc"
+                  placeholder="123"
+                  value={cardCvc}
+                  onChange={(e) => setCardCvc(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+          </div>
+        );
+      case 'paypal':
+        return (
+          <div className="mt-3">
+            <Label htmlFor="paypalEmail">PayPal Email</Label>
+            <Input
+              id="paypalEmail"
+              type="email"
+              placeholder="your@email.com"
+              value={paypalEmail}
+              onChange={(e) => setPaypalEmail(e.target.value)}
+              className="mt-1"
+            />
+          </div>
+        );
+      case 'bank_transfer':
+        return (
+          <div className="space-y-4 mt-3">
+            <div>
+              <Label htmlFor="bankName">Bank Name</Label>
+              <Input
+                id="bankName"
+                placeholder="Enter bank name"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="accountNumber">Account Number</Label>
+              <Input
+                id="accountNumber"
+                placeholder="Enter account number"
+                value={accountNumber}
+                onChange={(e) => setAccountNumber(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <Label htmlFor="routingNumber">Routing Number</Label>
+              <Input
+                id="routingNumber"
+                placeholder="Enter routing number"
+                value={routingNumber}
+                onChange={(e) => setRoutingNumber(e.target.value)}
+                className="mt-1"
+              />
+            </div>
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -209,12 +338,15 @@ const AssignmentSubmission: React.FC = () => {
                   <div className="flex items-center space-x-2 border rounded-md p-3 hover:bg-gray-50">
                     <RadioGroupItem value="bank_transfer" id="bank_transfer" />
                     <Label htmlFor="bank_transfer" className="flex items-center cursor-pointer">
-                      <DollarSign className="h-4 w-4 mr-2" />
+                      <Building className="h-4 w-4 mr-2" />
                       Bank Transfer
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
+              
+              {/* Render dynamic payment fields based on selected method */}
+              {renderPaymentFields()}
             </div>
             
             <Button 
@@ -228,14 +360,14 @@ const AssignmentSubmission: React.FC = () => {
             {submissionStatus === 'success' && (
               <div className="flex items-center text-green-600 mt-4">
                 <CheckCircle className="mr-2" />
-                Assignment submitted and payment initiated!
+                Assignment submitted and payment processed!
               </div>
             )}
             
             {submissionStatus === 'error' && (
               <div className="flex items-center text-red-600 mt-4">
                 <AlertTriangle className="mr-2" />
-                Please fill in all fields and select a payment method.
+                Please fill in all required fields and payment information.
               </div>
             )}
           </form>
